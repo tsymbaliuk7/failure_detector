@@ -2,9 +2,9 @@ import sys
 import threading
 
 from network.message_codes import MessageCodes
-from network.message_handlers.gossip_ack_confirm_message_handler import GossipAckConfirmMessageHandler
-from network.message_handlers.gossip_ack_message_handler import GossipAckMessageHandler
-from network.message_handlers.gossip_sync_message_handler import GossipSyncMessageHandler
+from gossiper.message_handlers.gossip_ack_confirm_message_handler import GossipAckConfirmMessageHandler
+from gossiper.message_handlers.gossip_ack_message_handler import GossipAckMessageHandler
+from gossiper.message_handlers.gossip_sync_message_handler import GossipSyncMessageHandler
 from util.endpoints_loader import load_endpoints
 from network.endpoint import Endpoint
 from network.message_handler_service import MessageHandlerService

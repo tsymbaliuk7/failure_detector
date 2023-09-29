@@ -1,6 +1,6 @@
 from network.endpoint import Endpoint
 from network.message_codes import MessageCodes
-from network.messages.message import Message
+from network.message import Message
 
 
 class GossipAckConfirmMessage(Message):

@@ -3,7 +3,7 @@ import threading
 import time
 
 from gossiper.interfaces.endpoint_state_change_subscriber import EndPointStateChangeSubscriber
-from network.messages.message import Message
+from network.message import Message
 
 
 class Server(EndPointStateChangeSubscriber):

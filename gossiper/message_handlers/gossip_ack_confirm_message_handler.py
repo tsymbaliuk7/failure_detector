@@ -1,5 +1,5 @@
 from network.message_handlers.handler import Handler
-from network.messages.gossip_ack_confirm_message import GossipAckConfirmMessage
+from gossiper.messages.gossip_ack_confirm_message import GossipAckConfirmMessage
 
 
 class GossipAckConfirmMessageHandler(Handler):

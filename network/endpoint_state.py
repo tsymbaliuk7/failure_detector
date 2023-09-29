@@ -2,6 +2,8 @@ import json
 from datetime import datetime
 from enum import Enum
 
+from util.version_generator import VersionGenerator
+
 
 class State(Enum):
     UNKNOWN = "unknown"
@@ -11,9 +13,11 @@ class State(Enum):
 
 
 class EndpointState:
-    def __init__(self, state=State.UNKNOWN, last_update_date=datetime.now()):
+    def __init__(self, state=State.UNKNOWN, last_update_date=datetime.now(), version=0, heartbeat=0):
         self.state = state
         self.last_update_date = last_update_date
+        self.version = version,
+        self.heartbeat = heartbeat
 
     def to_json(self):
         """
@@ -35,3 +39,7 @@ class EndpointState:
         """
         self.state = new_state
         self.last_update_date = datetime.now().isoformat()
+
+    def update_heartbeat(self):
+        self.version = VersionGenerator().next_version
+        self.heartbeat += 1

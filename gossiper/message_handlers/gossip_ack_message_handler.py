@@ -1,5 +1,5 @@
 from network.message_handlers.handler import Handler
-from network.messages.gossip_ack_message import GossipAckMessage
+from gossiper.messages.gossip_ack_message import GossipAckMessage
 
 
 class GossipAckMessageHandler(Handler):
