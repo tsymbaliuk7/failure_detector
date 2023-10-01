@@ -2,6 +2,7 @@ from arrival_window import ArrivalWindow
 from interfaces.failure_detector import IFailureDetector
 import time
 
+from network.endpoint import Endpoint
 from util.singletone import Singleton
 
 
@@ -16,11 +17,10 @@ class FailureDetector(IFailureDetector, metaclass=Singleton):
         self.arrival_samples = {}
         self.fd_evnt_listeners = []
 
-
-    def is_alive(self, ep):
+    def is_alive(self, ep: Endpoint):
         pass
 
-    def interpret(self, ep):
+    def interpret(self, ep: Endpoint):
         hb_window = self.arrival_samples.get(ep)
 
         if hb_window is None:
@@ -39,7 +39,7 @@ class FailureDetector(IFailureDetector, metaclass=Singleton):
             for listener in self.fd_evnt_listeners:
                 listener.suspect(ep)
 
-    def report(self, ep):
+    def report(self, ep: Endpoint):
         now = int(time.time() * 1000)
         arrival_window = self.arrival_samples.get(ep)
 
@@ -67,4 +67,3 @@ class FailureDetector(IFailureDetector, metaclass=Singleton):
             sb.append('\n')
         sb.append("-----------------------------------------------------------------------")
         return ''.join(sb)
-

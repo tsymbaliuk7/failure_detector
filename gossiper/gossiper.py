@@ -1,7 +1,8 @@
+from failure_detector.failure_detector import FailureDetector
 from failure_detector.interfaces.failure_detection_event_listener import IFailureDetectionEventListener
 from gossiper.gossip_digest import GossipDigest
 from network.endpoint import Endpoint
-from network.endpoint_state import EndpointState
+from network.endpoint_state import EndpointState, State
 from gossiper.messages.gossip_sync_message import GossipSyncMessage
 from network.message import Message
 from util.singletone import Singleton
@@ -58,8 +59,12 @@ class Gossiper(IFailureDetectionEventListener, metaclass=Singleton):
             if not result:
                 self.do_gossip_to_seed(message)
 
+            print("Performing status check...")
+
+            self.status_check()
+
         # Schedule the next gossiping
-        self.schedule_gossip()
+        # self.schedule_gossip()
 
     def do_gossip_to_seed(self, message: Message):
         seed_size = len(self.seeds)
@@ -117,11 +122,46 @@ class Gossiper(IFailureDetectionEventListener, metaclass=Singleton):
         if self.gossip_timer:
             self.gossip_timer.cancel()
 
+    def status_check(self):
+        eps = list(self.end_point_state_map.keys())
+
+        for endpoint in eps:
+            if endpoint == self.local_endpoint:
+                continue
+            FailureDetector().interpret(endpoint)
+
     def convict(self, ep):
-        pass
+        ep_state: EndpointState = self.end_point_state_map[ep]
+
+        if ep_state:
+            if not ep_state.is_unreachable():
+                print(f"Endpoint {ep} is now dead")
+                self.change_local_state(ep, ep_state, State.UNREACHABLE)
+                self.notify_subscribers(ep, ep_state)
 
     def suspect(self, ep):
-        pass
+        ep_state: EndpointState = self.end_point_state_map[ep]
+
+        if ep_state:
+            if not ep_state.is_sus():
+                print(f"Endpoint {ep} is now suspicious")
+                self.change_local_state(ep, ep_state, State.SUSPICIOUS)
+                self.notify_subscribers(ep, ep_state)
+
+    def change_local_state(self, endpoint: Endpoint, ep_state: EndpointState, new_value: State):
+        ep_state.update_state(new_value)
+        if new_value == State.LIVE or new_value == State.SUSPICIOUS:
+            self.live_endpoints.append(endpoint)
+            try:
+                self.unreachable_endpoints.remove(endpoint)
+            except Exception as e:
+                print(e)
+        else:
+            self.unreachable_endpoints.append(endpoint)
+            try:
+                self.live_endpoints.remove(endpoint)
+            except Exception as e:
+                print(e)
 
     def set_local_endpoint(self, endpoint):
         self.local_endpoint = endpoint

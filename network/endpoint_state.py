@@ -6,18 +6,26 @@ from util.version_generator import VersionGenerator
 
 
 class State(Enum):
-    UNKNOWN = "unknown"
     LIVE = "live"
     SUSPICIOUS = "suspicious"
     UNREACHABLE = "unreachable"
 
 
 class EndpointState:
-    def __init__(self, state=State.UNKNOWN, last_update_date=datetime.now(), version=0, heartbeat=0):
+    def __init__(self, state=State.LIVE, last_update_date=datetime.now(), version=0, heartbeat=0):
         self.state = state
         self.last_update_date = last_update_date
         self.version = version,
         self.heartbeat = heartbeat
+
+    def is_live(self) -> bool:
+        return self.state == State.LIVE
+
+    def is_sus(self) -> bool:
+        return self.state == State.SUSPICIOUS
+
+    def is_unreachable(self) -> bool:
+        return self.state == State.UNREACHABLE
 
     def to_json(self):
         """
@@ -33,7 +41,7 @@ class EndpointState:
         data = json.loads(json_str)
         return cls(**data)
 
-    def update_state(self, new_state):
+    def update_state(self, new_state: State):
         """
         Update the state and last update date.
         """
