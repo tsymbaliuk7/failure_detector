@@ -2,7 +2,8 @@ import json
 from datetime import datetime
 from enum import Enum
 
-from util.version_generator import VersionGenerator
+from network.application_state import ApplicationState
+from network.heartbeat_state import HeartBeatState
 
 
 class State(Enum):
@@ -12,11 +13,11 @@ class State(Enum):
 
 
 class EndpointState:
-    def __init__(self, state=State.LIVE, last_update_date=datetime.now(), version=0, heartbeat=0):
+    def __init__(self, heartbeat_state: HeartBeatState, state=State.LIVE, last_update_date=datetime.now()):
         self.state = state
         self.last_update_date = last_update_date
-        self.version = version,
-        self.heartbeat = heartbeat
+        self.heartbeat_state: HeartBeatState = heartbeat_state
+        self.application_states: dict[str, ApplicationState] = dict()
 
     def is_live(self) -> bool:
         return self.state == State.LIVE
@@ -26,6 +27,19 @@ class EndpointState:
 
     def is_unreachable(self) -> bool:
         return self.state == State.UNREACHABLE
+
+    def update_state(self, new_state: State):
+        """
+        Update the state and last update date.
+        """
+        self.state = new_state
+
+    def update_heartbeat_state(self, hb_state: HeartBeatState):
+        self.heartbeat_state = hb_state
+        self.last_update_date = datetime.now().isoformat()
+
+    def add_app_state(self, key: str, app_state: ApplicationState):
+        self.application_states[key] = app_state
 
     def to_json(self):
         """
@@ -40,14 +54,3 @@ class EndpointState:
         """
         data = json.loads(json_str)
         return cls(**data)
-
-    def update_state(self, new_state: State):
-        """
-        Update the state and last update date.
-        """
-        self.state = new_state
-        self.last_update_date = datetime.now().isoformat()
-
-    def update_heartbeat(self):
-        self.version = VersionGenerator().next_version
-        self.heartbeat += 1

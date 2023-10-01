@@ -4,6 +4,7 @@ from gossiper.gossip_digest import GossipDigest
 from network.endpoint import Endpoint
 from network.endpoint_state import EndpointState, State
 from gossiper.messages.gossip_sync_message import GossipSyncMessage
+from network.heartbeat_state import HeartBeatState
 from network.message import Message
 from util.singletone import Singleton
 from util.endpoints_loader import load_endpoints
@@ -17,7 +18,7 @@ class Gossiper(IFailureDetectionEventListener, metaclass=Singleton):
     def __init__(self):
         self.send_message = None
         self.local_endpoint = None
-        self.end_point_state_map = {}  # Map<EndPoint, EndPointState>
+        self.end_point_state_map: dict[Endpoint, EndpointState] = {}
         self.subscribers = []
         self.gossip_timer = None
         self.live_endpoints = []
@@ -36,7 +37,7 @@ class Gossiper(IFailureDetectionEventListener, metaclass=Singleton):
         # Check if the local endpoint is not in the endpoint_states map
         if local_endpoint not in self.end_point_state_map:
             # Initialize its state with the default value
-            self.end_point_state_map[local_endpoint] = EndpointState()
+            self.end_point_state_map[local_endpoint] = EndpointState(heartbeat_state=HeartBeatState())
 
         # Start periodic gossiping
         self.schedule_gossip()
@@ -49,7 +50,7 @@ class Gossiper(IFailureDetectionEventListener, metaclass=Singleton):
     def run_gossip(self):
         print("Running gossip...")
         if self.local_endpoint:
-            self.local_endpoint_state.update_heartbeat()
+            self.local_endpoint_state.heartbeat_state.update_heartbeat()
             message = GossipSyncMessage(self.local_endpoint, {'message': "hello"})
 
             result = self.do_gossip_to_live_member(message)
@@ -111,9 +112,16 @@ class Gossiper(IFailureDetectionEventListener, metaclass=Singleton):
         gossip_digest_list = []
 
         ep_state = self.local_endpoint_state
-        local_version = ep_state.version
+        local_version = ep_state.heartbeat_state.version
 
         gossip_digest_list.append(GossipDigest(self.local_endpoint, local_version))
+
+        endpoints = list(self.live_endpoints)
+
+        random.shuffle(endpoints)
+
+        for ep in endpoints:
+            continue
 
         return gossip_digest_list
 
