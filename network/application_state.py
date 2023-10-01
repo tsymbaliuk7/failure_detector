@@ -5,10 +5,7 @@ from util.version_generator import VersionGenerator
 class ApplicationState(Serializable):
     def __init__(self, value, version=None):
         self.value = value
-        if version:
-            self.version = version
-        else:
-            self.version = VersionGenerator().next_version
+        self.version: int = version if version else VersionGenerator().next_version
 
     def to_json(self):
         return {"value": self.value, "version": self.version}

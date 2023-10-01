@@ -8,5 +8,5 @@ class Serializable(ABC):
 
     @classmethod
     @abstractmethod
-    def from_json(cls, json_str):
+    def from_json(cls, json_data):
         pass

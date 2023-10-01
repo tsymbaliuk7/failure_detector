@@ -4,9 +4,9 @@ from util.version_generator import VersionGenerator
 
 class HeartBeatState(Serializable):
 
-    def __init__(self, version=0, heartbeat=0):
-        self.version = version,
-        self.heartbeat = heartbeat
+    def __init__(self, heartbeat=0, version=0):
+        self.version: int = version,
+        self.heartbeat: int = heartbeat
 
     def update_heartbeat(self):
         self.version = VersionGenerator().next_version

@@ -48,9 +48,9 @@ class EndpointState:
         return json.dumps(self, default=lambda o: o.__dict__, indent=4)
 
     @classmethod
-    def from_json(cls, json_str):
+    def from_json(cls, json_data):
         """
         Create an object from a JSON-formatted string.
         """
-        data = json.loads(json_str)
+        data = json.loads(json_data)
         return cls(**data)

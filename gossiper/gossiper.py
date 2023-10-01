@@ -51,7 +51,10 @@ class Gossiper(IFailureDetectionEventListener, metaclass=Singleton):
         print("Running gossip...")
         if self.local_endpoint:
             self.local_endpoint_state.heartbeat_state.update_heartbeat()
-            message = GossipSyncMessage(self.local_endpoint, {'message': "hello"})
+            
+            gossip_digest = self.generate_random_gossip_digest()
+
+            message = GossipSyncMessage(self.local_endpoint, {}, gossip_digest)
 
             result = self.do_gossip_to_live_member(message)
 
@@ -66,6 +69,9 @@ class Gossiper(IFailureDetectionEventListener, metaclass=Singleton):
 
         # Schedule the next gossiping
         # self.schedule_gossip()
+
+    def create_gossip_sync_message(self):
+        pass
 
     def do_gossip_to_seed(self, message: Message):
         seed_size = len(self.seeds)
@@ -112,18 +118,31 @@ class Gossiper(IFailureDetectionEventListener, metaclass=Singleton):
         gossip_digest_list = []
 
         ep_state = self.local_endpoint_state
-        local_version = ep_state.heartbeat_state.version
+        max_version = self.get_max_endpoint_state_version(ep_state)
 
-        gossip_digest_list.append(GossipDigest(self.local_endpoint, local_version))
+        gossip_digest_list.append(GossipDigest(self.local_endpoint, max_version))
 
         endpoints = list(self.live_endpoints)
 
         random.shuffle(endpoints)
 
         for ep in endpoints:
-            continue
+            state = self.end_point_state_map[ep]
+            if state:
+                version = self.get_max_endpoint_state_version(ep_state)
+                gossip_digest_list.append(GossipDigest(ep, version))
+            else:
+                gossip_digest_list.append(GossipDigest(ep, 0))
 
         return gossip_digest_list
+
+    @staticmethod
+    def get_max_endpoint_state_version(ep_state: EndpointState) -> int:
+        versions: list[int] = [ep_state.heartbeat_state.version]
+        for key, app_state in ep_state.application_states.items():
+            versions.append(app_state.version)
+
+        return max(versions)
 
     def stop(self):
         # Stop the gossiping timer when you're done

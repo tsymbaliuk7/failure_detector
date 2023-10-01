@@ -16,6 +16,9 @@ class Message(Serializable):
         return json.dumps(data_dict)
 
     @classmethod
-    def from_json(cls, json_str):
-        data = json.loads(json_str)
+    def from_json(cls, json_data):
+        if json_data is str:
+            data = json.loads(json_data)
+        else:
+            data = json_data
         return cls(Endpoint.from_json(data["sender"]), data["data"], message_code=MessageCodes.from_str(data["message_code"]))

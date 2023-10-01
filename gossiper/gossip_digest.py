@@ -15,6 +15,6 @@ class GossipDigest(Serializable):
         return json.dumps(data_dict)
 
     @classmethod
-    def from_json(cls, json_str):
-        data = json.loads(json_str)
+    def from_json(cls, json_data):
+        data = json.loads(json_data)
         return cls(Endpoint.from_json(data["endpoint"]), max_version=data["max_version"])
