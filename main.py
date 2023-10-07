@@ -5,7 +5,7 @@ from network.message_codes import MessageCodes
 from gossiper.message_handlers.gossip_ack_confirm_message_handler import GossipAckConfirmMessageHandler
 from gossiper.message_handlers.gossip_ack_message_handler import GossipAckMessageHandler
 from gossiper.message_handlers.gossip_sync_message_handler import GossipSyncMessageHandler
-from util.endpoints_loader import load_endpoints
+from util.endpoints_loader import EndpointsLoader
 from network.endpoint import Endpoint
 from network.message_handler_service import MessageHandlerService
 from network.message_handlers.default_message_handler import DefaultMessageHandler
@@ -19,7 +19,7 @@ if __name__ == "__main__":
     host = sys.argv[1]
     port = int(sys.argv[2])
 
-    endpoints = load_endpoints()
+    endpoints = EndpointsLoader().endpoints
 
     server = Server(Endpoint(host, port), endpoints)
 

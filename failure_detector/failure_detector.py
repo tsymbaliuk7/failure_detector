@@ -7,8 +7,6 @@ from util.singletone import Singleton
 
 
 class FailureDetector(IFailureDetector, metaclass=Singleton):
-    _instance = None
-
     sample_size = 1000
     phi_suspect_threshold = 5
     phi_convict_threshold = 8

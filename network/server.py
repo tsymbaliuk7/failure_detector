@@ -4,6 +4,7 @@ import time
 
 from gossiper.interfaces.endpoint_state_change_subscriber import EndPointStateChangeSubscriber
 from network.message import Message
+from network.message_handler_service import MessageHandlerService
 
 
 class Server(EndPointStateChangeSubscriber):
@@ -47,13 +48,14 @@ class Server(EndPointStateChangeSubscriber):
             client_handler = threading.Thread(target=self.handle_client, args=(client,))
             client_handler.start()
 
-    def handle_client(self, client_socket):
+    @staticmethod
+    def handle_client(client_socket):
         while True:
             data = client_socket.recv(1024).decode('utf-8')
             if not data:
                 break
-            message = Message.from_json(data)
-            print(f"Server {self.address} received message: {message.sender}: {message.data}")
+            message = Message.message_factory(data)
+            MessageHandlerService().handle_message(message)
 
     def send_message(self, target_address, message):
         try:
@@ -70,4 +72,3 @@ class Server(EndPointStateChangeSubscriber):
     #             message = Message(self.address, "Hello from Server-" + self.address)
     #             self.send_message(target_address, message)
     #         time.sleep(5)
-

@@ -1,5 +1,8 @@
+from typing import Optional
+
 from failure_detector.failure_detector import FailureDetector
 from failure_detector.interfaces.failure_detection_event_listener import IFailureDetectionEventListener
+from failure_detector.interfaces.failure_detector import IFailureDetector
 from gossiper.gossip_digest import GossipDigest
 from network.endpoint import Endpoint
 from network.endpoint_state import EndpointState, State
@@ -7,7 +10,7 @@ from gossiper.messages.gossip_sync_message import GossipSyncMessage
 from network.heartbeat_state import HeartBeatState
 from network.message import Message
 from util.singletone import Singleton
-from util.endpoints_loader import load_endpoints
+from util.endpoints_loader import EndpointsLoader
 import threading
 import random
 
@@ -32,7 +35,7 @@ class Gossiper(IFailureDetectionEventListener, metaclass=Singleton):
     def start(self, local_endpoint):
         # Set the local endpoint
         self.local_endpoint = local_endpoint
-        self.seeds = load_endpoints()
+        self.seeds = EndpointsLoader().endpoints
 
         # Check if the local endpoint is not in the endpoint_states map
         if local_endpoint not in self.end_point_state_map:
@@ -51,10 +54,10 @@ class Gossiper(IFailureDetectionEventListener, metaclass=Singleton):
         print("Running gossip...")
         if self.local_endpoint:
             self.local_endpoint_state.heartbeat_state.update_heartbeat()
-            
+
             gossip_digest = self.generate_random_gossip_digest()
 
-            message = GossipSyncMessage(self.local_endpoint, {}, gossip_digest)
+            message = GossipSyncMessage(self.local_endpoint, {}, gossip_digest, cluster_id=EndpointsLoader().cluster_id)
 
             result = self.do_gossip_to_live_member(message)
 
@@ -114,6 +117,14 @@ class Gossiper(IFailureDetectionEventListener, metaclass=Singleton):
             print("send_message method not set.")
             return False
 
+    def send_message_from_gossiper(self, message: Message, to: Endpoint):
+        if callable(self.send_message):
+            self.send_message(tuple(to), message)
+            return True
+        else:
+            print("send_message method not set.")
+            return False
+
     def generate_random_gossip_digest(self) -> list[GossipDigest]:
         gossip_digest_list = []
 
@@ -143,6 +154,20 @@ class Gossiper(IFailureDetectionEventListener, metaclass=Singleton):
             versions.append(app_state.version)
 
         return max(versions)
+
+    def notify_failure_detector(self, gossip_digests: list[GossipDigest]):
+        fd: IFailureDetector = FailureDetector()
+
+        for g_digest in gossip_digests:
+            local_ep_state = self.end_point_state_map[g_digest.endpoint]
+
+            if local_ep_state:
+                remote_version = g_digest.max_version
+                local_version = self.get_max_endpoint_state_version(local_ep_state)
+
+                if remote_version > local_version:
+                    print(f"Reporting {g_digest.endpoint} to the FD.")
+                    fd.report(g_digest.endpoint)
 
     def stop(self):
         # Stop the gossiping timer when you're done
@@ -189,6 +214,65 @@ class Gossiper(IFailureDetectionEventListener, metaclass=Singleton):
                 self.live_endpoints.remove(endpoint)
             except Exception as e:
                 print(e)
+
+    '''
+    This method is used to figure the state that the Gossiper has but Gossipee doesn't. The delta digests
+    and the delta state are built up.
+    '''
+
+    def examine_gossiper(self, g_digest_list: list[GossipDigest], delta_gossip_digest_list: list[GossipDigest],
+                         delta_ep_state_map: dict[Endpoint, EndpointState]):
+        for g_digest in g_digest_list:
+            max_remote_version = g_digest.max_version
+            ep_state_ptr = self.end_point_state_map[g_digest.endpoint]
+            if ep_state_ptr:
+                max_local_version = self.get_max_endpoint_state_version(ep_state_ptr)
+                if max_remote_version == max_local_version:
+                    continue
+                elif max_remote_version > max_local_version:
+                    delta_gossip_digest_list.append(GossipDigest(g_digest.endpoint, max_version=max_local_version))
+                else:
+                    self.add_ep_state_for_sending(g_digest, delta_ep_state_map, max_remote_version=max_remote_version)
+
+            else:
+                self.add_digest_to_request(g_digest, delta_gossip_digest_list)
+
+    @staticmethod
+    def add_digest_to_request(g_digest: GossipDigest, delta_gossip_digest_list: list[GossipDigest]):
+        delta_gossip_digest_list.append(GossipDigest(g_digest.endpoint, max_version=0))
+
+    def add_ep_state_for_sending(self, g_digest: GossipDigest, delta_ep_state_map: dict[Endpoint, EndpointState],
+                                 max_remote_version: int):
+        local_ep_state = self.get_state_for_version_bigger_than(g_digest.endpoint, max_remote_version)
+        if local_ep_state:
+            delta_ep_state_map[g_digest.endpoint] = local_ep_state
+
+    def get_state_for_version_bigger_than(self, for_ep: Endpoint, version: int) -> Optional[EndpointState]:
+        ep_state = self.end_point_state_map[for_ep]
+        req_ep_state: Optional[EndpointState] = None
+
+        if ep_state:
+            """
+            Here we attempt to include the Heart Beat state only if it is
+            greater than the version passed in. It might happen that
+            the heart beat version may be less than the version passed
+            in, and some application state has a version that is greater
+            than the version passed in. In this case, we also send the old
+            heart beat and discard it on the receiver if it is redundant.
+            """
+            local_hb_version = ep_state.heartbeat_state.version
+            if local_hb_version > version:
+                req_ep_state = EndpointState(ep_state.heartbeat_state)
+
+            app_state_map = ep_state.application_states
+
+            for key, app_state in app_state_map.items():
+                if app_state.version > version:
+                    if req_ep_state is None:
+                        req_ep_state = EndpointState(ep_state.heartbeat_state)
+                    req_ep_state.add_app_state(key, app_state)
+
+        return req_ep_state
 
     def set_local_endpoint(self, endpoint):
         self.local_endpoint = endpoint

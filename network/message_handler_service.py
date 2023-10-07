@@ -6,9 +6,9 @@ from util.singletone import Singleton
 
 class MessageHandlerService(metaclass=Singleton):
 
-    def __init__(self, default_handler: Handler):
+    def __init__(self, default_handler: Handler = None):
         self.default_handler = default_handler
-        self.handlers_dict = {}
+        self.handlers_dict: dict[MessageCodes, Handler] = {}
 
     def handle_message(self, message: Message):
         if message.message_code in list(self.handlers_dict.keys()):

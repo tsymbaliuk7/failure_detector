@@ -1,5 +1,17 @@
-[
-    {"host": "localhost", "port": 8080},
-    {"host": "localhost", "port": 1234},
-    {"host": "localhost", "port": 8000}
-]
+{
+    "cluster_id": "Test",
+    "endpoints":[
+      {
+        "host": "localhost",
+        "port": 8080
+      },
+      {
+        "host": "localhost",
+        "port": 1234
+      },
+      {
+        "host": "localhost",
+        "port": 8000
+      }
+    ]
+}
