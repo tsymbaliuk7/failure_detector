@@ -4,6 +4,7 @@ import time
 
 from gossiper.interfaces.endpoint_state_change_subscriber import EndPointStateChangeSubscriber
 from network.message import Message
+from network.message_factory import message_factory
 from network.message_handler_service import MessageHandlerService
 
 
@@ -37,7 +38,7 @@ class Server(EndPointStateChangeSubscriber):
             time.sleep(5)
 
     def start(self):
-        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.server_socket: socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_socket.bind(tuple(self.local_endpoint))
         self.server_socket.listen(5)
         print(f"Server {self.address} is listening on {self.local_endpoint.host}:{self.local_endpoint.port}")
@@ -54,7 +55,7 @@ class Server(EndPointStateChangeSubscriber):
             data = client_socket.recv(1024).decode('utf-8')
             if not data:
                 break
-            message = Message.message_factory(data)
+            message = message_factory(data)
             MessageHandlerService().handle_message(message)
 
     def send_message(self, target_address, message):
@@ -65,6 +66,10 @@ class Server(EndPointStateChangeSubscriber):
                 target_socket.send(target_message.encode('utf-8'))
         except Exception as e:
             print(f"Error sending message: {str(e)}")
+
+    def stop(self):
+        if self.server_socket:
+            self.server_socket.close()
 
     # def message_sender(self):
     #     while True:

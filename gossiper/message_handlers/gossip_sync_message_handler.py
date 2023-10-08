@@ -1,5 +1,6 @@
 from gossiper.gossip_digest import GossipDigest
 from gossiper.gossiper import Gossiper
+from gossiper.messages.gossip_ack_message import GossipAckMessage
 from network.endpoint import Endpoint
 from network.endpoint_state import EndpointState
 from network.message_handlers.handler import Handler
@@ -10,7 +11,6 @@ from util.endpoints_loader import EndpointsLoader
 class GossipSyncMessageHandler(Handler):
     def handle_message(self, message: GossipSyncMessage):
         print(f"Incoming GossipSyncMessage {message.message_code} from {message.sender}")
-        print(message.data)
 
         if not EndpointsLoader().cluster_id == message.cluster_id:
             return
@@ -26,7 +26,7 @@ class GossipSyncMessageHandler(Handler):
 
         Gossiper().examine_gossiper(gossip_digest_list, delta_gossip_digest, delta_ep_states_map)
 
-        Gossiper().send_message_from_gossiper()
+        Gossiper().send_message_from_gossiper(GossipAckMessage(Gossiper().local_endpoint, delta_gossip_digest, delta_ep_states_map), message.sender)
 
         print(f"Sending a GossipAckMessage to {message.sender}")
 
@@ -40,7 +40,8 @@ class GossipSyncMessageHandler(Handler):
         diff_digests = []
         for g_digest in g_digest_list:
             ep = g_digest.endpoint
-            ep_state = Gossiper().end_point_state_map[ep]
+            ep_state = Gossiper().end_point_state_map.get(ep)
+
             version = Gossiper.get_max_endpoint_state_version(ep_state) if ep_state else 0
             diff_version = abs(version - g_digest.max_version)
             diff_digests.append(GossipDigest(ep, diff_version))

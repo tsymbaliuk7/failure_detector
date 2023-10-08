@@ -16,7 +16,7 @@ import random
 
 
 class Gossiper(IFailureDetectionEventListener, metaclass=Singleton):
-    interval = 1
+    interval = 5
 
     def __init__(self):
         self.send_message = None
@@ -32,13 +32,16 @@ class Gossiper(IFailureDetectionEventListener, metaclass=Singleton):
     def local_endpoint_state(self) -> EndpointState:
         return self.end_point_state_map[self.local_endpoint]
 
-    def start(self, local_endpoint):
+    def start(self, local_endpoint: Endpoint):
         # Set the local endpoint
         self.local_endpoint = local_endpoint
         self.seeds = EndpointsLoader().endpoints
 
+
+        print(self.seeds)
+
         # Check if the local endpoint is not in the endpoint_states map
-        if local_endpoint not in self.end_point_state_map:
+        if local_endpoint not in self.end_point_state_map.keys():
             # Initialize its state with the default value
             self.end_point_state_map[local_endpoint] = EndpointState(heartbeat_state=HeartBeatState())
 
@@ -57,7 +60,7 @@ class Gossiper(IFailureDetectionEventListener, metaclass=Singleton):
 
             gossip_digest = self.generate_random_gossip_digest()
 
-            message = GossipSyncMessage(self.local_endpoint, {}, gossip_digest, cluster_id=EndpointsLoader().cluster_id)
+            message = GossipSyncMessage(self.local_endpoint, gossip_digest, cluster_id=EndpointsLoader().cluster_id)
 
             result = self.do_gossip_to_live_member(message)
 
@@ -71,7 +74,7 @@ class Gossiper(IFailureDetectionEventListener, metaclass=Singleton):
             self.status_check()
 
         # Schedule the next gossiping
-        # self.schedule_gossip()
+        self.schedule_gossip()
 
     def create_gossip_sync_message(self):
         pass
@@ -159,7 +162,8 @@ class Gossiper(IFailureDetectionEventListener, metaclass=Singleton):
         fd: IFailureDetector = FailureDetector()
 
         for g_digest in gossip_digests:
-            local_ep_state = self.end_point_state_map[g_digest.endpoint]
+
+            local_ep_state = self.end_point_state_map.get(g_digest.endpoint)
 
             if local_ep_state:
                 remote_version = g_digest.max_version
@@ -224,7 +228,7 @@ class Gossiper(IFailureDetectionEventListener, metaclass=Singleton):
                          delta_ep_state_map: dict[Endpoint, EndpointState]):
         for g_digest in g_digest_list:
             max_remote_version = g_digest.max_version
-            ep_state_ptr = self.end_point_state_map[g_digest.endpoint]
+            ep_state_ptr = self.end_point_state_map.get(g_digest.endpoint)
             if ep_state_ptr:
                 max_local_version = self.get_max_endpoint_state_version(ep_state_ptr)
                 if max_remote_version == max_local_version:
@@ -277,7 +281,7 @@ class Gossiper(IFailureDetectionEventListener, metaclass=Singleton):
     def set_local_endpoint(self, endpoint):
         self.local_endpoint = endpoint
 
-    def set_send_message(self, send_message_method):
+    def set_send_message(self, send_message_method: callable):
         self.send_message = send_message_method
 
     def add_subscriber(self, subscriber):

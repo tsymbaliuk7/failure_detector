@@ -9,7 +9,7 @@ class MessageCodes(Enum):
     GOSSIP_ACK_CONFIRM_CODE = "GACM"
 
     @staticmethod
-    def from_str(label):
+    def from_str(label: str):
         if label in ('UNKNOWN', 'UNK'):
             return MessageCodes.UNKNOWN
         elif label in ('GOSSIP_SYNC_CODE', 'GSM'):

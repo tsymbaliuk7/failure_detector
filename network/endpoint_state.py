@@ -11,13 +11,27 @@ class State(Enum):
     SUSPICIOUS = "suspicious"
     UNREACHABLE = "unreachable"
 
+    @staticmethod
+    def from_str(label: str):
+        if label in ('LIVE', 'live'):
+            return State.LIVE
+        elif label in ('SUSPICIOUS', 'suspicious'):
+            return State.SUSPICIOUS
+        elif label in ('UNREACHABLE', 'unreachable'):
+            return State.UNREACHABLE
+
+        return State.LIVE
+
 
 class EndpointState:
-    def __init__(self, heartbeat_state: HeartBeatState, state=State.LIVE, last_update_date=datetime.now()):
+    def __init__(self, heartbeat_state: HeartBeatState, state=State.LIVE, last_update_date=datetime.now(),
+                 application_states=None):
+        if application_states is None:
+            application_states = dict()
         self.state = state
         self.last_update_date = last_update_date
         self.heartbeat_state: HeartBeatState = heartbeat_state
-        self.application_states: dict[str, ApplicationState] = dict()
+        self.application_states: dict[str, ApplicationState] = application_states
 
     def is_live(self) -> bool:
         return self.state == State.LIVE
@@ -42,15 +56,27 @@ class EndpointState:
         self.application_states[key] = app_state
 
     def to_json(self):
-        """
-        Convert the object to a JSON-formatted string.
-        """
-        return json.dumps(self, default=lambda o: o.__dict__, indent=4)
+        return {
+            "state": self.state.value,
+            "last_update_date": self.last_update_date.timestamp(),
+            "heartbeat_state": self.heartbeat_state.to_json(),
+            "application_states": [[item[0], item[1].to_json()] for item in self.application_states.items()]
+        }
 
     @classmethod
     def from_json(cls, json_data):
-        """
-        Create an object from a JSON-formatted string.
-        """
-        data = json.loads(json_data)
-        return cls(**data)
+        if isinstance(json_data, str):
+            data = json.loads(json_data)
+        else:
+            data = json_data
+
+        print(data)
+
+        temp_application_states = {item[0]: ApplicationState.from_json(item[1]) for item in data["application_states"]}
+
+        return cls(
+            heartbeat_state=HeartBeatState.from_json(data["heartbeat_state"]),
+            state=State.from_str(data["state"]),
+            last_update_date=datetime.fromtimestamp(data["last_update_date"]),
+            application_states=temp_application_states
+        )

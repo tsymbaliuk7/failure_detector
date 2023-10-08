@@ -7,14 +7,13 @@ from network.message import Message
 
 
 class GossipAckConfirmMessage(Message):
-    def __init__(self, sender: Endpoint, data, gossip_digests: list[GossipDigest]):
-        super().__init__(sender, data, message_code=MessageCodes.GOSSIP_ACK_CONFIRM_CODE)
+    def __init__(self, sender: Endpoint, gossip_digests: list[GossipDigest]):
+        super().__init__(sender, message_code=MessageCodes.GOSSIP_ACK_CONFIRM_CODE)
         self.gossip_digests = gossip_digests
 
     def to_json(self):
         data_dict = {
             "sender": self.sender.to_json(),
-            "data": self.data,
             "message_code": self.message_code.value,
             "gossip_digests": list(map(lambda a: a.to_json(), self.gossip_digests))
         }
@@ -22,8 +21,8 @@ class GossipAckConfirmMessage(Message):
 
     @classmethod
     def from_json(cls, json_data):
-        if json_data is str:
+        if isinstance(json_data, str):
             data = json.loads(json_data)
         else:
             data = json_data
-        return cls(Endpoint.from_json(data["sender"]), data["data"], [GossipDigest.from_json(data) for data in data["gossip_digests"]])
+        return cls(Endpoint.from_json(data["sender"]), [GossipDigest.from_json(data) for data in data["gossip_digests"]])

@@ -16,5 +16,6 @@ class EndpointsLoader(metaclass=Singleton):
         with open("endpoints.json", "r") as file:
             endpoint_data = json.load(file)
 
-        return {"endpoints": list([Endpoint.from_json(data["endpoints"]) for data in endpoint_data]),
-                "cluster_id": endpoint_data["cluster_id"]}
+        ep = list([Endpoint.from_json(data) for data in endpoint_data["endpoints"]])
+
+        return {"endpoints": ep, "cluster_id": endpoint_data["cluster_id"]}

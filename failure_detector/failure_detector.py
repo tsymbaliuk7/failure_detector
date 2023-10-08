@@ -1,5 +1,5 @@
-from arrival_window import ArrivalWindow
-from interfaces.failure_detector import IFailureDetector
+from failure_detector.arrival_window import ArrivalWindow
+from failure_detector.interfaces.failure_detector import IFailureDetector
 import time
 
 from network.endpoint import Endpoint
