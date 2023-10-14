@@ -35,8 +35,6 @@ class GossipAckMessage(Message):
         else:
             data = json_data
 
-        print(data["ep_state_map"])
-
         temp_ep_state_map = {Endpoint.from_json(ep_item[0]): EndpointState.from_json(ep_item[1]) for ep_item in
                              data["ep_state_map"]}
 

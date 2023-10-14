@@ -37,7 +37,6 @@ class Gossiper(IFailureDetectionEventListener, metaclass=Singleton):
         self.local_endpoint = local_endpoint
         self.seeds = EndpointsLoader().endpoints
 
-
         print(self.seeds)
 
         # Check if the local endpoint is not in the endpoint_states map
@@ -114,7 +113,7 @@ class Gossiper(IFailureDetectionEventListener, metaclass=Singleton):
 
         # Call the send_message method with the random endpoint
         if callable(self.send_message):
-            self.send_message(tuple(random_endpoint), message)
+            self.send_message(random_endpoint, message)
             return random_endpoint in self.seeds
         else:
             print("send_message method not set.")
@@ -122,7 +121,7 @@ class Gossiper(IFailureDetectionEventListener, metaclass=Singleton):
 
     def send_message_from_gossiper(self, message: Message, to: Endpoint):
         if callable(self.send_message):
-            self.send_message(tuple(to), message)
+            self.send_message(to, message)
             return True
         else:
             print("send_message method not set.")
@@ -172,6 +171,90 @@ class Gossiper(IFailureDetectionEventListener, metaclass=Singleton):
                 if remote_version > local_version:
                     print(f"Reporting {g_digest.endpoint} to the FD.")
                     fd.report(g_digest.endpoint)
+
+    def notify_failure_detector_about_ep_state(self, remote_ep_state_map: dict[Endpoint, EndpointState]):
+        fd: IFailureDetector = FailureDetector()
+        endpoints = remote_ep_state_map.keys()
+
+        for ep in endpoints:
+            remote_ep_state = remote_ep_state_map.get(ep)
+            local_ep_state = self.end_point_state_map.get(ep)
+
+            if local_ep_state:
+                remote_version = remote_ep_state.heartbeat_state.version
+                local_version = self.get_max_endpoint_state_version(local_ep_state)
+                if remote_version > local_version:
+                    fd.report(ep)
+
+    def apply_state_locally(self, ep_state_map: dict[Endpoint, EndpointState]):
+        endpoints = ep_state_map.keys()
+        for ep in endpoints:
+            if ep == self.local_endpoint:
+                continue
+
+            local_ep_state_ptr = self.end_point_state_map.get(ep)
+            remote_state = ep_state_map.get(ep)
+
+            if local_ep_state_ptr:
+                remote_version = self.get_max_endpoint_state_version(remote_state)
+                local_version = self.get_max_endpoint_state_version(local_ep_state_ptr)
+                if remote_version > local_version:
+                    self.reanimate(ep, local_ep_state_ptr)
+                    self.apply_heart_beat_state_locally(ep, local_ep_state_ptr, remote_state)
+                    self.apply_application_state_locally(ep, local_ep_state_ptr, remote_state)
+
+            else:
+                self.handle_new_join(ep, remote_state)
+
+    @staticmethod
+    def apply_heart_beat_state_locally(ep: Endpoint, local_state: EndpointState, remote_state: EndpointState):
+        local_hb_state = local_state.heartbeat_state
+        remote_hb_state = remote_state.heartbeat_state
+
+        if remote_hb_state.version > local_hb_state.version:
+            old_version = local_hb_state.version
+            local_state.update_heartbeat_state(remote_hb_state)
+            print(
+                f"Updating heartbeat state version to {local_state.heartbeat_state.version} from {old_version} for {ep}...")
+
+    def apply_application_state_locally(self, ep: Endpoint, local_state: EndpointState, remote_state: EndpointState):
+        local_app_state_map = local_state.application_states
+        remote_app_state_map = remote_state.application_states
+
+        for key in remote_app_state_map.keys():
+            remote_app_state = remote_app_state_map.get(key)
+            local_app_state = local_app_state_map.get(key)
+
+            if not local_app_state:
+                local_state.add_app_state(key, remote_app_state)
+                delta_state = EndpointState(local_state.heartbeat_state)
+                delta_state.add_app_state(key, remote_app_state)
+
+                self.notify_subscribers(ep, delta_state)
+                continue
+
+            remote_version = remote_app_state.version
+            local_version = local_app_state.version
+
+            if remote_version > local_version:
+                local_state.add_app_state(key, remote_app_state)
+                delta_state = EndpointState(local_state.heartbeat_state)
+                delta_state.add_app_state(key, remote_app_state)
+
+                self.notify_subscribers(ep, delta_state)
+
+    def handle_new_join(self, ep: Endpoint, ep_state: EndpointState):
+        print(f"Node {ep} has now joined.")
+        self.end_point_state_map[ep] = ep_state
+        self.change_local_state(ep, ep_state, State.LIVE)
+        self.notify_subscribers(ep, ep_state)
+
+    def reanimate(self, ep: Endpoint, ep_state: EndpointState):
+        print(f"Attempting to reanimate {ep}")
+
+        if not ep_state.is_live():
+            self.change_local_state(ep, ep_state, State.LIVE)
+            print(f"EndPoint {ep} is now LIVE")
 
     def stop(self):
         # Stop the gossiping timer when you're done
@@ -296,7 +379,7 @@ class Gossiper(IFailureDetectionEventListener, metaclass=Singleton):
         available_endpoints = list(self.end_point_state_map.keys())
         return random.choice(available_endpoints)
 
-    def notify_subscribers(self, addr, ep_state):
+    def notify_subscribers(self, ep: Endpoint, ep_state: EndpointState):
         # Notify subscribers of state changes for a specific endpoint and state
         for subscriber in self.subscribers:
-            subscriber.on_change(addr, ep_state)
+            subscriber.on_change(ep, ep_state)

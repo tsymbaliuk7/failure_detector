@@ -26,7 +26,8 @@ class GossipSyncMessageHandler(Handler):
 
         Gossiper().examine_gossiper(gossip_digest_list, delta_gossip_digest, delta_ep_states_map)
 
-        Gossiper().send_message_from_gossiper(GossipAckMessage(Gossiper().local_endpoint, delta_gossip_digest, delta_ep_states_map), message.sender)
+        Gossiper().send_message_from_gossiper(
+            GossipAckMessage(Gossiper().local_endpoint, delta_gossip_digest, delta_ep_states_map), message.sender)
 
         print(f"Sending a GossipAckMessage to {message.sender}")
 
