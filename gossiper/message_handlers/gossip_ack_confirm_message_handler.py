@@ -1,5 +1,5 @@
 from gossiper.gossiper import Gossiper
-from network.message_handlers.handler import Handler
+from network.messages.message_handlers.handler import Handler
 from gossiper.messages.gossip_ack_confirm_message import GossipAckConfirmMessage
 
 
@@ -9,7 +9,7 @@ class GossipAckConfirmMessageHandler(Handler):
 
         remote_ep_state = message.ep_state_map
 
-        Gossiper().notify_failure_detector_about_ep_state(remote_ep_state)
+        Gossiper().notify_failure_detector(message.sender)
         Gossiper().apply_state_locally(remote_ep_state)
 
         print(f"Gossip cycle between {Gossiper().local_endpoint} and {message.sender} finished!")

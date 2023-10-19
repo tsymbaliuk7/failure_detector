@@ -3,8 +3,8 @@ import json
 from gossiper.messages.gossip_ack_confirm_message import GossipAckConfirmMessage
 from gossiper.messages.gossip_ack_message import GossipAckMessage
 from gossiper.messages.gossip_sync_message import GossipSyncMessage
-from network.message import Message
-from network.message_codes import MessageCodes
+from network.messages.entities.message import Message
+from network.messages.message_codes import MessageCodes
 
 
 def message_factory(json_data) -> Message:

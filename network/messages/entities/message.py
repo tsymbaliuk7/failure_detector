@@ -1,7 +1,7 @@
 import json
 
-from network.endpoint import Endpoint
-from network.message_codes import MessageCodes
+from network.enpoints.endpoint import Endpoint
+from network.messages.message_codes import MessageCodes
 from util.serializable import Serializable
 
 

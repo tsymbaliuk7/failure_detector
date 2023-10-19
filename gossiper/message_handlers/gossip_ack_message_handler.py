@@ -1,6 +1,7 @@
 from gossiper.gossiper import Gossiper
 from gossiper.messages.gossip_ack_confirm_message import GossipAckConfirmMessage
-from network.message_handlers.handler import Handler
+from network.message_sender_service import MessageSenderService
+from network.messages.message_handlers.handler import Handler
 from gossiper.messages.gossip_ack_message import GossipAckMessage
 
 
@@ -12,7 +13,7 @@ class GossipAckMessageHandler(Handler):
         ep_state_map = message.ep_state_map
 
         if len(ep_state_map.keys()) > 0:
-            Gossiper().notify_failure_detector_about_ep_state(ep_state_map)
+            Gossiper().notify_failure_detector(message.sender)
             Gossiper().apply_state_locally(ep_state_map)
 
         delta_ep_state_map = dict()
@@ -27,4 +28,4 @@ class GossipAckMessageHandler(Handler):
 
         print(f"Sending a GossipAckConfirmMessage to {message.sender}")
 
-        Gossiper().send_message_from_gossiper(message=gossip_ack_confirm_message, to=message.sender)
+        MessageSenderService().send_message(message.sender, gossip_ack_confirm_message)

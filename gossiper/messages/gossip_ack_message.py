@@ -1,11 +1,10 @@
 import json
 
 from gossiper.gossip_digest import GossipDigest
-from network.endpoint import Endpoint
-from network.endpoint_state import EndpointState
-from network.heartbeat_state import HeartBeatState
-from network.message_codes import MessageCodes
-from network.message import Message
+from network.enpoints.endpoint import Endpoint
+from network.enpoints.endpoint_state import EndpointState
+from network.messages.message_codes import MessageCodes
+from network.messages.entities.message import Message
 
 
 class GossipAckMessage(Message):

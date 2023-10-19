@@ -1,19 +1,21 @@
-from failure_detector.arrival_window import ArrivalWindow
-from failure_detector.interfaces.failure_detector import IFailureDetector
-import time
+import datetime
 
-from network.endpoint import Endpoint
+from failure_detector.arrival_window import ArrivalWindow
+from failure_detector.interfaces.failure_detection_event_listener import IFailureDetectionEventListener
+from failure_detector.interfaces.failure_detector import IFailureDetector
+
+from network.enpoints.endpoint import Endpoint
 from util.singletone import Singleton
 
 
 class FailureDetector(IFailureDetector, metaclass=Singleton):
-    sample_size = 1000
+    sample_size = 100
     phi_suspect_threshold = 5
     phi_convict_threshold = 8
 
     def __init__(self):
-        self.arrival_samples = {}
-        self.fd_evnt_listeners = []
+        self.arrival_samples: dict[Endpoint, ArrivalWindow] = {}
+        self.fd_evnt_listeners: list[IFailureDetectionEventListener] = []
 
     def is_alive(self, ep: Endpoint):
         pass
@@ -24,21 +26,31 @@ class FailureDetector(IFailureDetector, metaclass=Singleton):
         if hb_window is None:
             return
 
-        now = int(time.time() * 1000)
+        now = datetime.datetime.now().timestamp() * 1000
         is_convicted = False
-        phi = hb_window.phi(now)
+        is_suspected = False
+
+        detector_report = hb_window.phi(now)
+
+        phi = detector_report.phi
+
+        print(f"Failure Detector ({ep}) calculated phi = {phi}, probability = {detector_report.probability}")
 
         if phi > self.phi_convict_threshold:
             is_convicted = True
             for listener in self.fd_evnt_listeners:
-                listener.convict(ep)
-
+                listener.convict(ep, detector_report)
         if not is_convicted and phi > self.phi_suspect_threshold:
+            is_suspected = True
             for listener in self.fd_evnt_listeners:
-                listener.suspect(ep)
+                listener.suspect(ep, detector_report)
+
+        if not is_suspected and phi <= self.phi_suspect_threshold:
+            for listener in self.fd_evnt_listeners:
+                listener.reanimate(ep, detector_report)
 
     def report(self, ep: Endpoint):
-        now = int(time.time() * 1000)
+        now = datetime.datetime.now().timestamp() * 1000
         arrival_window = self.arrival_samples.get(ep)
 
         if arrival_window is None:
@@ -47,10 +59,10 @@ class FailureDetector(IFailureDetector, metaclass=Singleton):
 
         arrival_window.add(now)
 
-    def register_failure_detection_event_listener(self, listener):
+    def register_failure_detection_event_listener(self, listener: IFailureDetectionEventListener):
         self.fd_evnt_listeners.append(listener)  # Add the listener to the list
 
-    def unregister_failure_detection_event_listener(self, listener):
+    def unregister_failure_detection_event_listener(self, listener: IFailureDetectionEventListener):
         self.fd_evnt_listeners.remove(listener)  # Remove the listener from the list
 
     def __str__(self):

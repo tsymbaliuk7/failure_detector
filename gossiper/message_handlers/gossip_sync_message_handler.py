@@ -1,9 +1,10 @@
 from gossiper.gossip_digest import GossipDigest
 from gossiper.gossiper import Gossiper
 from gossiper.messages.gossip_ack_message import GossipAckMessage
-from network.endpoint import Endpoint
-from network.endpoint_state import EndpointState
-from network.message_handlers.handler import Handler
+from network.enpoints.endpoint import Endpoint
+from network.enpoints.endpoint_state import EndpointState
+from network.message_sender_service import MessageSenderService
+from network.messages.message_handlers.handler import Handler
 from gossiper.messages.gossip_sync_message import GossipSyncMessage
 from util.endpoints_loader import EndpointsLoader
 
@@ -17,7 +18,7 @@ class GossipSyncMessageHandler(Handler):
 
         gossip_digest_list = message.gossip_digests
 
-        Gossiper().notify_failure_detector(gossip_digest_list)
+        Gossiper().notify_failure_detector(message.sender)
 
         self.do_sort(gossip_digest_list)
 
@@ -26,13 +27,14 @@ class GossipSyncMessageHandler(Handler):
 
         Gossiper().examine_gossiper(gossip_digest_list, delta_gossip_digest, delta_ep_states_map)
 
-        Gossiper().send_message_from_gossiper(
-            GossipAckMessage(Gossiper().local_endpoint, delta_gossip_digest, delta_ep_states_map), message.sender)
+        MessageSenderService().send_message(message.sender,
+                                            GossipAckMessage(Gossiper().local_endpoint, delta_gossip_digest,
+                                                             delta_ep_states_map))
 
         print(f"Sending a GossipAckMessage to {message.sender}")
 
     @staticmethod
-    def do_sort(g_digest_list):
+    def do_sort(g_digest_list: list[GossipDigest]):
         # Construct a map of endpoint to GossipDigest.
         ep_to_digest_map = {g_digest.endpoint: g_digest for g_digest in g_digest_list}
 

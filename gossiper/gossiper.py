@@ -1,14 +1,17 @@
 from typing import Optional
 
+from failure_detector.detector_report import DetectorReport
 from failure_detector.failure_detector import FailureDetector
 from failure_detector.interfaces.failure_detection_event_listener import IFailureDetectionEventListener
 from failure_detector.interfaces.failure_detector import IFailureDetector
 from gossiper.gossip_digest import GossipDigest
-from network.endpoint import Endpoint
-from network.endpoint_state import EndpointState, State
+from gossiper.interfaces.endpoint_state_change_subscriber import EndPointStateChangeSubscriber
+from network.enpoints.endpoint import Endpoint
+from network.enpoints.endpoint_state import EndpointState, State
 from gossiper.messages.gossip_sync_message import GossipSyncMessage
-from network.heartbeat_state import HeartBeatState
-from network.message import Message
+from network.enpoints.heartbeat_state import HeartBeatState
+from network.message_sender_service import MessageSenderService
+from network.messages.entities.message import Message
 from util.singletone import Singleton
 from util.endpoints_loader import EndpointsLoader
 import threading
@@ -16,28 +19,34 @@ import random
 
 
 class Gossiper(IFailureDetectionEventListener, metaclass=Singleton):
-    interval = 5
+    interval = 1
 
     def __init__(self):
-        self.send_message = None
         self.local_endpoint = None
         self.end_point_state_map: dict[Endpoint, EndpointState] = {}
-        self.subscribers = []
+        self.subscribers: list[EndPointStateChangeSubscriber] = []
         self.gossip_timer = None
-        self.live_endpoints = []
-        self.unreachable_endpoints = []
-        self.seeds = []
+        self.live_endpoints: set[Endpoint] = set()
+        self.unreachable_endpoints: set[Endpoint] = set()
+        self.seeds: set[Endpoint] = set()
 
     @property
     def local_endpoint_state(self) -> EndpointState:
         return self.end_point_state_map[self.local_endpoint]
 
+    def get_suspicious_ep_list(self) -> list[Endpoint]:
+        sus_list = []
+        for ep in self.live_endpoints:
+            ep_state = self.end_point_state_map.get(ep)
+            if ep_state:
+                if ep_state.is_sus():
+                    sus_list.append(ep)
+        return sus_list
+
     def start(self, local_endpoint: Endpoint):
         # Set the local endpoint
         self.local_endpoint = local_endpoint
         self.seeds = EndpointsLoader().endpoints
-
-        print(self.seeds)
 
         # Check if the local endpoint is not in the endpoint_states map
         if local_endpoint not in self.end_point_state_map.keys():
@@ -59,18 +68,20 @@ class Gossiper(IFailureDetectionEventListener, metaclass=Singleton):
 
             gossip_digest = self.generate_random_gossip_digest()
 
-            message = GossipSyncMessage(self.local_endpoint, gossip_digest, cluster_id=EndpointsLoader().cluster_id)
+            if len(gossip_digest) > 0:
 
-            result = self.do_gossip_to_live_member(message)
+                message = GossipSyncMessage(self.local_endpoint, gossip_digest, cluster_id=EndpointsLoader().cluster_id)
 
-            self.do_gossip_to_unreachable_member(message)
+                result = self.do_gossip_to_live_member(message)
 
-            if not result:
-                self.do_gossip_to_seed(message)
+                self.do_gossip_to_unreachable_member(message)
 
-            print("Performing status check...")
+                if not result:
+                    self.do_gossip_to_seed(message)
 
-            self.status_check()
+                print("Performing status check...")
+
+                self.status_check()
 
         # Schedule the next gossiping
         self.schedule_gossip()
@@ -81,22 +92,28 @@ class Gossiper(IFailureDetectionEventListener, metaclass=Singleton):
     def do_gossip_to_seed(self, message: Message):
         seed_size = len(self.seeds)
         if seed_size > 0:
-            if seed_size == 1 and self.seeds[0] == self.local_endpoint:
+            if seed_size == 1 and list(self.seeds)[0] == self.local_endpoint:
                 return
 
             if len(self.live_endpoints) == 0:
-                self.send_gossip(message, self.seeds)
+                self.send_gossip(message, list(self.seeds))
             else:
                 probability = len(self.seeds) / (len(self.live_endpoints) + len(self.unreachable_endpoints))
                 random_double = random.uniform(0, 1)
                 if random_double <= probability:
-                    self.send_gossip(message, self.seeds)
+                    self.send_gossip(message, list(self.seeds))
 
     def do_gossip_to_live_member(self, message: Message) -> bool:
         size = len(self.live_endpoints)
         if size == 0:
             return False
-        return self.send_gossip(message, self.live_endpoints)
+
+        suspicious_ep_list = self.get_suspicious_ep_list()
+
+        if len(suspicious_ep_list) > 0:
+            return self.send_gossip(message, suspicious_ep_list)
+        else:
+            return self.send_gossip(message, list(self.live_endpoints))
 
     def do_gossip_to_unreachable_member(self, message: Message):
         live_endp_len = len(self.live_endpoints)
@@ -109,23 +126,10 @@ class Gossiper(IFailureDetectionEventListener, metaclass=Singleton):
 
     def send_gossip(self, message: Message, endpoints: list[Endpoint]) -> bool:
         random_endpoint = random.choice(list(endpoints))
+        if random_endpoint == self.local_endpoint:
+            return False
         print(f"Selected random endpoint: {random_endpoint}")
-
-        # Call the send_message method with the random endpoint
-        if callable(self.send_message):
-            self.send_message(random_endpoint, message)
-            return random_endpoint in self.seeds
-        else:
-            print("send_message method not set.")
-            return False
-
-    def send_message_from_gossiper(self, message: Message, to: Endpoint):
-        if callable(self.send_message):
-            self.send_message(to, message)
-            return True
-        else:
-            print("send_message method not set.")
-            return False
+        return MessageSenderService().send_message(random_endpoint, message)
 
     def generate_random_gossip_digest(self) -> list[GossipDigest]:
         gossip_digest_list = []
@@ -157,34 +161,10 @@ class Gossiper(IFailureDetectionEventListener, metaclass=Singleton):
 
         return max(versions)
 
-    def notify_failure_detector(self, gossip_digests: list[GossipDigest]):
+    @staticmethod
+    def notify_failure_detector(ep: Endpoint):
         fd: IFailureDetector = FailureDetector()
-
-        for g_digest in gossip_digests:
-
-            local_ep_state = self.end_point_state_map.get(g_digest.endpoint)
-
-            if local_ep_state:
-                remote_version = g_digest.max_version
-                local_version = self.get_max_endpoint_state_version(local_ep_state)
-
-                if remote_version > local_version:
-                    print(f"Reporting {g_digest.endpoint} to the FD.")
-                    fd.report(g_digest.endpoint)
-
-    def notify_failure_detector_about_ep_state(self, remote_ep_state_map: dict[Endpoint, EndpointState]):
-        fd: IFailureDetector = FailureDetector()
-        endpoints = remote_ep_state_map.keys()
-
-        for ep in endpoints:
-            remote_ep_state = remote_ep_state_map.get(ep)
-            local_ep_state = self.end_point_state_map.get(ep)
-
-            if local_ep_state:
-                remote_version = remote_ep_state.heartbeat_state.version
-                local_version = self.get_max_endpoint_state_version(local_ep_state)
-                if remote_version > local_version:
-                    fd.report(ep)
+        fd.report(ep)
 
     def apply_state_locally(self, ep_state_map: dict[Endpoint, EndpointState]):
         endpoints = ep_state_map.keys()
@@ -199,7 +179,7 @@ class Gossiper(IFailureDetectionEventListener, metaclass=Singleton):
                 remote_version = self.get_max_endpoint_state_version(remote_state)
                 local_version = self.get_max_endpoint_state_version(local_ep_state_ptr)
                 if remote_version > local_version:
-                    self.reanimate(ep, local_ep_state_ptr)
+                    # self.reanimate(ep, local_ep_state_ptr)
                     self.apply_heart_beat_state_locally(ep, local_ep_state_ptr, remote_state)
                     self.apply_application_state_locally(ep, local_ep_state_ptr, remote_state)
 
@@ -249,12 +229,12 @@ class Gossiper(IFailureDetectionEventListener, metaclass=Singleton):
         self.change_local_state(ep, ep_state, State.LIVE)
         self.notify_subscribers(ep, ep_state)
 
-    def reanimate(self, ep: Endpoint, ep_state: EndpointState):
-        print(f"Attempting to reanimate {ep}")
-
-        if not ep_state.is_live():
-            self.change_local_state(ep, ep_state, State.LIVE)
-            print(f"EndPoint {ep} is now LIVE")
+    # def reanimate(self, ep: Endpoint, ep_state: EndpointState):
+    #     print(f"Attempting to reanimate {ep}")
+    #
+    #     if not ep_state.is_live():
+    #         self.change_local_state(ep, ep_state, State.LIVE)
+    #         print(f"EndPoint {ep} is now LIVE")
 
     def stop(self):
         # Stop the gossiping timer when you're done
@@ -269,34 +249,44 @@ class Gossiper(IFailureDetectionEventListener, metaclass=Singleton):
                 continue
             FailureDetector().interpret(endpoint)
 
-    def convict(self, ep):
+    def convict(self, ep: Endpoint, detector_report: DetectorReport):
         ep_state: EndpointState = self.end_point_state_map[ep]
 
         if ep_state:
             if not ep_state.is_unreachable():
                 print(f"Endpoint {ep} is now dead")
                 self.change_local_state(ep, ep_state, State.UNREACHABLE)
-                self.notify_subscribers(ep, ep_state)
+            self.notify_subscribers(ep, ep_state, detector_report)
 
-    def suspect(self, ep):
+    def suspect(self, ep: Endpoint, detector_report: DetectorReport):
         ep_state: EndpointState = self.end_point_state_map[ep]
 
         if ep_state:
             if not ep_state.is_sus():
                 print(f"Endpoint {ep} is now suspicious")
                 self.change_local_state(ep, ep_state, State.SUSPICIOUS)
-                self.notify_subscribers(ep, ep_state)
+            self.notify_subscribers(ep, ep_state, detector_report)
+
+    def reanimate(self, ep: Endpoint, detector_report: DetectorReport):
+        ep_state: EndpointState = self.end_point_state_map[ep]
+
+        if ep_state:
+            if not ep_state.is_live():
+                print(f"Endpoint {ep} is now live")
+                self.change_local_state(ep, ep_state, State.LIVE)
+            self.notify_subscribers(ep, ep_state, detector_report)
 
     def change_local_state(self, endpoint: Endpoint, ep_state: EndpointState, new_value: State):
         ep_state.update_state(new_value)
+
         if new_value == State.LIVE or new_value == State.SUSPICIOUS:
-            self.live_endpoints.append(endpoint)
+            self.live_endpoints.add(endpoint)
             try:
                 self.unreachable_endpoints.remove(endpoint)
             except Exception as e:
                 print(e)
         else:
-            self.unreachable_endpoints.append(endpoint)
+            self.unreachable_endpoints.add(endpoint)
             try:
                 self.live_endpoints.remove(endpoint)
             except Exception as e:
@@ -364,13 +354,10 @@ class Gossiper(IFailureDetectionEventListener, metaclass=Singleton):
     def set_local_endpoint(self, endpoint):
         self.local_endpoint = endpoint
 
-    def set_send_message(self, send_message_method: callable):
-        self.send_message = send_message_method
-
-    def add_subscriber(self, subscriber):
+    def add_subscriber(self, subscriber: EndPointStateChangeSubscriber):
         self.subscribers.append(subscriber)
 
-    def remove_subscriber(self, subscriber):
+    def remove_subscriber(self, subscriber: EndPointStateChangeSubscriber):
         self.subscribers.remove(subscriber)
 
     def select_random_endpoint(self):
@@ -379,7 +366,8 @@ class Gossiper(IFailureDetectionEventListener, metaclass=Singleton):
         available_endpoints = list(self.end_point_state_map.keys())
         return random.choice(available_endpoints)
 
-    def notify_subscribers(self, ep: Endpoint, ep_state: EndpointState):
+    def notify_subscribers(self, ep: Endpoint, ep_state: EndpointState,
+                           detector_report: Optional[DetectorReport] = None):
         # Notify subscribers of state changes for a specific endpoint and state
         for subscriber in self.subscribers:
-            subscriber.on_change(ep, ep_state)
+            subscriber.on_change(ep, ep_state, detector_report)

@@ -2,16 +2,24 @@
     "cluster_id": "Test",
     "endpoints":[
       {
-        "host": "localhost",
+        "host": "127.0.0.1",
         "port": 8080
       },
       {
-        "host": "localhost",
+        "host": "127.0.0.1",
         "port": 1234
       },
       {
-        "host": "localhost",
+        "host": "127.0.0.1",
         "port": 8000
+      },
+      {
+        "host": "127.0.0.1",
+        "port": 8001
+      },
+      {
+        "host": "127.0.0.1",
+        "port": 8002
       }
     ]
 }

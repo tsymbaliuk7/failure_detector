@@ -1,6 +1,6 @@
 import json
 
-from network.endpoint import Endpoint
+from network.enpoints.endpoint import Endpoint
 from util.singletone import Singleton
 
 

@@ -8,6 +8,10 @@ class MessageCodes(Enum):
     GOSSIP_ACK_CODE = "GAM"
     GOSSIP_ACK_CONFIRM_CODE = "GACM"
 
+    INFO_REQUEST = "IRQM"
+
+    INFO_RESPONSE = "IRSM"
+
     @staticmethod
     def from_str(label: str):
         if label in ('UNKNOWN', 'UNK'):
@@ -18,5 +22,7 @@ class MessageCodes(Enum):
             return MessageCodes.GOSSIP_ACK_CODE
         elif label in ('GOSSIP_ACK_CONFIRM_CODE', 'GACM'):
             return MessageCodes.GOSSIP_ACK_CONFIRM_CODE
+        elif label in ('INFO_REQUEST', 'IRQM'):
+            return MessageCodes.INFO_REQUEST
 
         return MessageCodes.UNKNOWN

@@ -1,6 +1,6 @@
-from network.message_codes import MessageCodes
-from network.message_handlers.handler import Handler
-from network.message import Message
+from network.messages.message_codes import MessageCodes
+from network.messages.message_handlers.handler import Handler
+from network.messages.entities.message import Message
 from util.singletone import Singleton
 
 

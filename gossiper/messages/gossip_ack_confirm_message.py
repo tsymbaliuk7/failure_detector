@@ -1,15 +1,14 @@
 import json
 
-from gossiper.gossip_digest import GossipDigest
-from network.endpoint import Endpoint
-from network.endpoint_state import EndpointState
-from network.message_codes import MessageCodes
-from network.message import Message
+from network.enpoints.endpoint import Endpoint
+from network.enpoints.endpoint_state import EndpointState
+from network.messages.message_codes import MessageCodes
+from network.messages.entities.message import Message
 
 
 class GossipAckConfirmMessage(Message):
     def __init__(self, sender: Endpoint, ep_state_map: dict[Endpoint, EndpointState]):
-        super().__init__(sender, message_code=MessageCodes.GOSSIP_ACK_CODE),
+        super().__init__(sender, message_code=MessageCodes.GOSSIP_ACK_CONFIRM_CODE),
         self.ep_state_map: dict[Endpoint, EndpointState] = ep_state_map
 
     def to_json(self):

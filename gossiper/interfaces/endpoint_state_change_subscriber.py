@@ -1,11 +1,13 @@
 from abc import abstractmethod
+from typing import Optional
 
-from network.endpoint import Endpoint
-from network.endpoint_state import EndpointState
+from failure_detector.detector_report import DetectorReport
+from network.enpoints.endpoint import Endpoint
+from network.enpoints.endpoint_state import EndpointState
 
 
 class EndPointStateChangeSubscriber:
 
     @abstractmethod
-    def on_change(self, endpoint: Endpoint, ep_state: EndpointState):
+    def on_change(self, endpoint: Endpoint, ep_state: EndpointState, detector_report: Optional[DetectorReport] = None):
         pass

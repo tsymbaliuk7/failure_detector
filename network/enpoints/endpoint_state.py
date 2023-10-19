@@ -2,8 +2,8 @@ import json
 from datetime import datetime
 from enum import Enum
 
-from network.application_state import ApplicationState
-from network.heartbeat_state import HeartBeatState
+from network.enpoints.application_state import ApplicationState
+from network.enpoints.heartbeat_state import HeartBeatState
 
 
 class State(Enum):
@@ -29,7 +29,7 @@ class EndpointState:
         if application_states is None:
             application_states = dict()
         self.state = state
-        self.last_update_date = last_update_date
+        self.last_update_date: datetime = last_update_date
         self.heartbeat_state: HeartBeatState = heartbeat_state
         self.application_states: dict[str, ApplicationState] = application_states
 
@@ -50,7 +50,7 @@ class EndpointState:
 
     def update_heartbeat_state(self, hb_state: HeartBeatState):
         self.heartbeat_state = hb_state
-        self.last_update_date = datetime.now().isoformat()
+        self.last_update_date = datetime.now()
 
     def add_app_state(self, key: str, app_state: ApplicationState):
         self.application_states[key] = app_state

@@ -1,5 +1,7 @@
 import math
 
+from failure_detector.detector_report import DetectorReport
+
 
 class ArrivalWindow:
     """
@@ -42,16 +44,6 @@ class ArrivalWindow:
         """
         return sum(self.arrival_intervals)
 
-    def sum_of_deviations(self):
-        """
-        Calculate the sum of squared deviations from the mean.
-
-        Returns:
-            float: The sum of squared deviations.
-        """
-        mean_value = self.mean()
-        return sum((x - mean_value) ** 2 for x in self.arrival_intervals)
-
     def mean(self):
         """
         Calculate the mean of arrival intervals in the window.
@@ -61,45 +53,36 @@ class ArrivalWindow:
         """
         return self.sum() / len(self.arrival_intervals)
 
-    def variance(self):
-        """
-        Calculate the variance of arrival intervals in the window.
-
-        Returns:
-            float: The variance of arrival intervals.
-        """
-        return self.sum_of_deviations() / len(self.arrival_intervals)
-
-    def deviation(self):
-        """
-        Calculate the standard deviation of arrival intervals in the window.
-
-        Returns:
-            float: The standard deviation of arrival intervals.
-        """
-        return math.sqrt(self.variance())
-
     def clear(self):
         """
         Clear all arrival intervals from the window.
         """
         self.arrival_intervals.clear()
 
-    def p(self, t):
+    def probability(self, t):
         """
         Calculate the probability using the Exponential Cumulative Distribution Function (CDF).
+
+        For CDF: mean = 1/l => l = 1/mean where l(lambda) is rate, or inverse scale
+
+        CDF: F(t) = 1 - e^(-l*t) =>  F(t) = 1 - e^(-t/mean), which means probability that T <= t
 
         Args:
             t (float): The value for which to calculate the probability.
 
         Returns:
-            float: The calculated probability.
+            float: The calculated probability of whether some event will happen in t time.
+            Probability that T >= t
         """
         mean_value = self.mean()
-        exponent = (-t) / mean_value
-        return 1 - (1 - math.exp(exponent))
 
-    def phi(self, t_now):
+        if mean_value == 0:
+            return 0
+
+        exp_pow = (-t) / mean_value
+        return 1 - (1 - math.exp(exp_pow))
+
+    def phi(self, t_now) -> DetectorReport:
         """
         Calculate the log likelihood ratio (phi) for a given time.
 
@@ -110,11 +93,16 @@ class ArrivalWindow:
             float: The calculated log likelihood ratio (phi).
         """
         if len(self.arrival_intervals) > 0:
+
             t = t_now - self.t_last
-            probability = self.p(t)
+            probability = self.probability(t)
+
+            if probability == 0:
+                return DetectorReport(float('inf'), probability)
+
             log_value = (-1) * math.log10(probability)
-            return log_value
-        return 0.0
+            return DetectorReport(log_value, probability)
+        return DetectorReport(0.0, 0.0)
 
     def __str__(self):
         """

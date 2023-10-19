@@ -1,6 +1,6 @@
 from abc import abstractmethod
 
-from network.message import Message
+from network.messages.entities.message import Message
 
 
 class Handler:
