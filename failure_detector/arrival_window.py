@@ -65,14 +65,13 @@ class ArrivalWindow:
 
         For CDF: mean = 1/l => l = 1/mean where l(lambda) is rate, or inverse scale
 
-        CDF: F(t) = 1 - e^(-l*t) =>  F(t) = 1 - e^(-t/mean), which means probability that T <= t
+        CDF: F(t) = 1 - e^(-l*t) =>  F(t) = 1 - e^(-t/mean),
 
         Args:
             t (float): The value for which to calculate the probability.
 
         Returns:
             float: The calculated probability of whether some event will happen in t time.
-            Probability that T >= t
         """
         mean_value = self.mean()
 
