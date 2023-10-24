@@ -70,8 +70,6 @@ class EndpointState:
         else:
             data = json_data
 
-        print(data)
-
         temp_application_states = {item[0]: ApplicationState.from_json(item[1]) for item in data["application_states"]}
 
         return cls(

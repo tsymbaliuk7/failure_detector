@@ -12,6 +12,7 @@ from gossiper.messages.gossip_sync_message import GossipSyncMessage
 from network.enpoints.heartbeat_state import HeartBeatState
 from network.message_sender_service import MessageSenderService
 from network.messages.entities.message import Message
+from util.logger import Logger
 from util.singletone import Singleton
 from util.endpoints_loader import EndpointsLoader
 import threading
@@ -62,7 +63,7 @@ class Gossiper(IFailureDetectionEventListener, metaclass=Singleton):
         self.gossip_timer.start()
 
     def run_gossip(self):
-        print("Running gossip...")
+        Logger.info("Running gossip...")
         if self.local_endpoint:
             self.local_endpoint_state.heartbeat_state.update_heartbeat()
 
@@ -79,7 +80,7 @@ class Gossiper(IFailureDetectionEventListener, metaclass=Singleton):
                 if not result:
                     self.do_gossip_to_seed(message)
 
-                print("Performing status check...")
+                Logger.info("Performing status check...")
 
                 self.status_check()
 
@@ -128,7 +129,7 @@ class Gossiper(IFailureDetectionEventListener, metaclass=Singleton):
         random_endpoint = random.choice(list(endpoints))
         if random_endpoint == self.local_endpoint:
             return False
-        print(f"Selected random endpoint: {random_endpoint}")
+        Logger.info(f"Selected random endpoint: {random_endpoint}")
         return MessageSenderService().send_message(random_endpoint, message)
 
     def generate_random_gossip_digest(self) -> list[GossipDigest]:
@@ -194,7 +195,7 @@ class Gossiper(IFailureDetectionEventListener, metaclass=Singleton):
         if remote_hb_state.version > local_hb_state.version:
             old_version = local_hb_state.version
             local_state.update_heartbeat_state(remote_hb_state)
-            print(
+            Logger.info(
                 f"Updating heartbeat state version to {local_state.heartbeat_state.version} from {old_version} for {ep}...")
 
     def apply_application_state_locally(self, ep: Endpoint, local_state: EndpointState, remote_state: EndpointState):
@@ -224,17 +225,10 @@ class Gossiper(IFailureDetectionEventListener, metaclass=Singleton):
                 self.notify_subscribers(ep, delta_state)
 
     def handle_new_join(self, ep: Endpoint, ep_state: EndpointState):
-        print(f"Node {ep} has now joined.")
+        Logger.success(f"Node {ep} has now joined.")
         self.end_point_state_map[ep] = ep_state
         self.change_local_state(ep, ep_state, State.LIVE)
         self.notify_subscribers(ep, ep_state)
-
-    # def reanimate(self, ep: Endpoint, ep_state: EndpointState):
-    #     print(f"Attempting to reanimate {ep}")
-    #
-    #     if not ep_state.is_live():
-    #         self.change_local_state(ep, ep_state, State.LIVE)
-    #         print(f"EndPoint {ep} is now LIVE")
 
     def stop(self):
         # Stop the gossiping timer when you're done
@@ -254,7 +248,7 @@ class Gossiper(IFailureDetectionEventListener, metaclass=Singleton):
 
         if ep_state:
             if not ep_state.is_unreachable():
-                print(f"Endpoint {ep} is now dead")
+                Logger.error(f"Endpoint {ep} is dead")
                 self.change_local_state(ep, ep_state, State.UNREACHABLE)
             self.notify_subscribers(ep, ep_state, detector_report)
 
@@ -263,7 +257,7 @@ class Gossiper(IFailureDetectionEventListener, metaclass=Singleton):
 
         if ep_state:
             if not ep_state.is_sus():
-                print(f"Endpoint {ep} is now suspicious")
+                Logger.warning(f"Endpoint {ep} is suspicious")
                 self.change_local_state(ep, ep_state, State.SUSPICIOUS)
             self.notify_subscribers(ep, ep_state, detector_report)
 
@@ -272,7 +266,7 @@ class Gossiper(IFailureDetectionEventListener, metaclass=Singleton):
 
         if ep_state:
             if not ep_state.is_live():
-                print(f"Endpoint {ep} is now live")
+                Logger.success(f"Endpoint {ep} is live")
                 self.change_local_state(ep, ep_state, State.LIVE)
             self.notify_subscribers(ep, ep_state, detector_report)
 
@@ -284,13 +278,13 @@ class Gossiper(IFailureDetectionEventListener, metaclass=Singleton):
             try:
                 self.unreachable_endpoints.remove(endpoint)
             except Exception as e:
-                print(e)
+                Logger.error(str(e))
         else:
             self.unreachable_endpoints.add(endpoint)
             try:
                 self.live_endpoints.remove(endpoint)
             except Exception as e:
-                print(e)
+                Logger.error(str(e))
 
     '''
     This method is used to figure the state that the Gossiper has but Gossipee doesn't. The delta digests
@@ -329,14 +323,6 @@ class Gossiper(IFailureDetectionEventListener, metaclass=Singleton):
         req_ep_state: Optional[EndpointState] = None
 
         if ep_state:
-            """
-            Here we attempt to include the Heart Beat state only if it is
-            greater than the version passed in. It might happen that
-            the heart beat version may be less than the version passed
-            in, and some application state has a version that is greater
-            than the version passed in. In this case, we also send the old
-            heart beat and discard it on the receiver if it is redundant.
-            """
             local_hb_version = ep_state.heartbeat_state.version
             if local_hb_version > version:
                 req_ep_state = EndpointState(ep_state.heartbeat_state)

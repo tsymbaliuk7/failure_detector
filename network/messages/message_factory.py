@@ -15,8 +15,6 @@ def message_factory(json_data) -> Message:
 
     message_code = MessageCodes.from_str(data["message_code"])
 
-    print(message_code)
-
     if message_code == MessageCodes.GOSSIP_SYNC_CODE:
         return GossipSyncMessage.from_json(data)
 

@@ -5,6 +5,7 @@ from failure_detector.interfaces.failure_detection_event_listener import IFailur
 from failure_detector.interfaces.failure_detector import IFailureDetector
 
 from network.enpoints.endpoint import Endpoint
+from util.logger import Logger
 from util.singletone import Singleton
 
 
@@ -34,7 +35,7 @@ class FailureDetector(IFailureDetector, metaclass=Singleton):
 
         phi = detector_report.phi
 
-        print(f"Failure Detector ({ep}) calculated phi = {phi}, probability = {detector_report.probability}")
+        Logger.info(f"Failure Detector ({ep}) calculated phi = {phi}, probability = {detector_report.probability}")
 
         if phi > self.phi_convict_threshold:
             is_convicted = True

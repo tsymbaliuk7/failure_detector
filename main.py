@@ -13,6 +13,7 @@ from network.enpoints.endpoint import Endpoint
 from network.messages.message_handler_service import MessageHandlerService
 from network.messages.message_handlers.default_message_handler import DefaultMessageHandler
 from network.server import Server
+from util.logger import Logger
 
 
 def start_server(server: Server):
@@ -36,16 +37,18 @@ def start_server(server: Server):
     server.start()
 
 
+
 if __name__ == "__main__":
     server = None
     try:
         if len(sys.argv) != 3:
-            print("Usage: python main.py <host> <port>")
+            Logger.warning("Usage: python main.py <host> <port>")
             sys.exit(1)
 
         host = sys.argv[1]
         port = int(sys.argv[2])
 
+        Logger.info(f'Starting server on {host}:{port}...')
         endpoints = EndpointsLoader().endpoints
 
         server = Server(Endpoint(host, port))

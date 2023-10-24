@@ -7,11 +7,12 @@ from network.message_sender_service import MessageSenderService
 from network.messages.message_handlers.handler import Handler
 from gossiper.messages.gossip_sync_message import GossipSyncMessage
 from util.endpoints_loader import EndpointsLoader
+from util.logger import Logger
 
 
 class GossipSyncMessageHandler(Handler):
     def handle_message(self, message: GossipSyncMessage):
-        print(f"Incoming GossipSyncMessage {message.message_code} from {message.sender}")
+        Logger.info(f"Incoming GossipSyncMessage {message.message_code} from {message.sender}")
 
         if not EndpointsLoader().cluster_id == message.cluster_id:
             return
@@ -31,7 +32,7 @@ class GossipSyncMessageHandler(Handler):
                                             GossipAckMessage(Gossiper().local_endpoint, delta_gossip_digest,
                                                              delta_ep_states_map))
 
-        print(f"Sending a GossipAckMessage to {message.sender}")
+        Logger.info(f"Sending a GossipAckMessage to {message.sender}")
 
     @staticmethod
     def do_sort(g_digest_list: list[GossipDigest]):

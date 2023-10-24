@@ -9,6 +9,7 @@ from network.message_sender_interface import MessageSender
 from network.messages.message_factory import message_factory
 from network.messages.message_handler_service import MessageHandlerService
 from network.messages.entities.message import Message
+from util.logger import Logger
 from util.singletone import Singleton
 
 
@@ -27,9 +28,11 @@ class Server(EndPointStateChangeSubscriber, MessageSender, metaclass=Singleton):
         if self.local_endpoint:
             self.server_socket.bind(tuple(self.local_endpoint))
 
+            Logger.success('Server started successfully')
+
             while True:
                 data, addr = self.server_socket.recvfrom(1024)
-                print(f"Message from {addr}")
+                Logger.info(f"Message from {addr}")
 
                 if not data:
                     continue
@@ -44,14 +47,14 @@ class Server(EndPointStateChangeSubscriber, MessageSender, metaclass=Singleton):
             ep_state = self.server_ep_state_info.get(target_ep)
             if ep_state:
                 if ep_state.is_sus():
-                    print("Warning! This endpoint is suspicious and message send might fail!")
+                    Logger.warning("Warning! This endpoint is suspicious and message send might fail!")
                 elif ep_state.is_sus():
-                    print("Alert! This endpoint is unreachable!")
+                    Logger.error("Alert! This endpoint is unreachable!")
             if self.server_socket:
                 target_message = message.to_json()
                 self.server_socket.sendto(target_message.encode('utf-8'), tuple(target_ep))
         except Exception as e:
-            print(f"Error sending message: {str(e)}")
+            Logger.error(f"Error sending message: {str(e)}")
 
     def stop(self):
         if self.server_socket:
@@ -62,9 +65,9 @@ class Server(EndPointStateChangeSubscriber, MessageSender, metaclass=Singleton):
             self.server_ep_detector_reports[endpoint] = detector_report
         self.server_ep_state_info[endpoint] = ep_state
         if ep_state.is_unreachable():
-            print(f"Endpoint {endpoint} is now unreachable")
+            Logger.error(f"Endpoint {endpoint} is now unreachable for Server")
 
         elif ep_state.is_sus():
-            print(f"Endpoint {endpoint} is now suspicious")
+            Logger.warning(f"Endpoint {endpoint} is now suspicious for Server")
         elif ep_state.is_live():
-            print(f"Endpoint {endpoint} is now live")
+            Logger.success(f"Endpoint {endpoint} is now live for Server")

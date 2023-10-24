@@ -3,11 +3,12 @@ from gossiper.messages.gossip_ack_confirm_message import GossipAckConfirmMessage
 from network.message_sender_service import MessageSenderService
 from network.messages.message_handlers.handler import Handler
 from gossiper.messages.gossip_ack_message import GossipAckMessage
+from util.logger import Logger
 
 
 class GossipAckMessageHandler(Handler):
     def handle_message(self, message: GossipAckMessage):
-        print(f"Received a GossipDigestAckMessage from {message.sender}")
+        Logger.info(f"Received a GossipDigestAckMessage from {message.sender}")
 
         g_digest_list = message.gossip_digests
         ep_state_map = message.ep_state_map
@@ -26,6 +27,6 @@ class GossipAckMessageHandler(Handler):
 
         gossip_ack_confirm_message = GossipAckConfirmMessage(Gossiper().local_endpoint, delta_ep_state_map)
 
-        print(f"Sending a GossipAckConfirmMessage to {message.sender}")
+        Logger.info(f"Sending a GossipAckConfirmMessage to {message.sender}")
 
         MessageSenderService().send_message(message.sender, gossip_ack_confirm_message)
